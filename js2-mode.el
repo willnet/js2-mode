@@ -676,7 +676,11 @@ which doesn't seem particularly useful, but Rhino permits it."
 (defvar js2-COMMENT 160)
 (defvar js2-ENUM 161)  ; for "enum" reserved word
 
-(defconst js2-num-tokens (1+ js2-ENUM))
+;; TODO: make these keywords behave as contextual keywords
+;; http://wiki.ecmascript.org/doku.php?id=harmony:iterators
+(defvar js2-OF 162)
+
+(defconst js2-num-tokens (1+ js2-OF))
 
 (defconst js2-debug-print-trees nil)
 
@@ -5402,6 +5406,7 @@ into temp buffers."
     else enum
     false finally for function
     if in instanceof import
+    of
     let
     new null
     return
@@ -5422,6 +5427,7 @@ into temp buffers."
                js2-ELSE
                js2-FALSE js2-FINALLY js2-FOR js2-FUNCTION
                js2-IF js2-IN js2-INSTANCEOF js2-IMPORT
+               js2-OF
                js2-LET
                js2-NEW js2-NULL
                js2-RETURN
@@ -7936,7 +7942,7 @@ Parses for, for-in, and for each-in statements."
             (setq init (js2-parse-variables tt js2-token-beg)))
            (t
             (setq init (js2-parse-expr)))))
-      (if (js2-match-token js2-IN)
+      (if (or (js2-match-token js2-IN) (js2-match-token js2-OF))
           (setq is-for-in t
                 in-pos (- js2-token-beg for-pos)
                 ;; scope of iteration target object is not the scope we've created above.
@@ -9531,8 +9537,9 @@ Last token peeked should be the initial FOR."
           ;; be restricted to the array comprehension
           (if (js2-name-node-p iter)
               (js2-define-symbol js2-LET (js2-name-node-name iter) pn t))
-          (if (js2-must-match js2-IN "msg.in.after.for.name")
-              (setq in-pos (- js2-token-beg pos)))
+          (if (or (js2-match-token js2-IN) (js2-match-token js2-OF))
+              (setq in-pos (- js2-token-beg pos))
+            (js2-report-error "msg.in.after.for.name"))
           (setq obj (js2-parse-expr))
           (if (js2-must-match js2-RP "msg.no.paren.for.ctrl")
               (setq rp (- js2-token-beg pos)))
